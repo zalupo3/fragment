@@ -353,7 +353,7 @@
 
         // Инициализация TON Connect
         const tonConnect = new TonConnectSDK.TonConnect({
-            manifestUrl: 'https://yourdomain.com/tonconnect-manifest.json' // Замените на URL вашего манифеста
+            manifestUrl: 'https://yourdomain.com/tonconnect-manifest.json' // Замените на реальный URL
         });
 
         // Загрузка данных из сервера
@@ -382,12 +382,16 @@
         // Функция подключения кошелька и отправки транзакции
         async function connectWallet() {
             try {
-                // Запрашиваем подключение кошелька
-                await tonConnect.connect();
-
                 // Проверяем, подключён ли кошелёк
                 if (!tonConnect.connected) {
-                    tg.showAlert('Ошибка: кошелёк не подключён. Попробуйте снова.');
+                    console.log('Инициируем подключение кошелька...');
+                    await tonConnect.connect();
+                    console.log('Подключение завершено, статус:', tonConnect.connected);
+                }
+
+                // Проверяем статус подключения
+                if (!tonConnect.connected) {
+                    tg.showAlert('Кошелёк не подключён. Убедитесь, что у вас установлен Telegram Wallet или другой TON-кошелёк, и попробуйте снова.');
                     return;
                 }
 
@@ -410,6 +414,8 @@
                     ]
                 };
 
+                console.log('Отправляем транзакцию:', transaction);
+
                 // Отправляем транзакцию
                 const result = await tonConnect.sendTransaction(transaction);
 
@@ -417,11 +423,19 @@
                 if (result) {
                     tg.showAlert(`Транзакция успешно отправлена! Сумма комиссии (${commissionTon} TON) отправлена на адрес ${recipientAddress}.`);
                 } else {
-                    tg.showAlert('Ошибка при отправке транзакции. Попробуйте снова.');
+                    tg.showAlert('Транзакция не выполнена. Проверьте баланс кошелька и попробуйте снова.');
                 }
             } catch (error) {
-                console.error('Ошибка при подключении кошелька или отправке транзакции:', error);
-                tg.showAlert('Произошла ошибка. Проверьте подключение кошелька и попробуйте снова.');
+                console.error('Ошибка:', error);
+                if (error.message.includes('manifest')) {
+                    tg.showAlert('Ошибка: Некорректный manifestUrl. Убедитесь, что tonconnect-manifest.json доступен на вашем сервере.');
+                } else if (error.message.includes('wallet')) {
+                    tg.showAlert('Ошибка: Кошелёк не найден. Установите Telegram Wallet или другой TON-кошелёк.');
+                } else if (error.message.includes('balance')) {
+                    tg.showAlert('Ошибка: Недостаточно средств на балансе для отправки комиссии.');
+                } else {
+                    tg.showAlert(`Произошла ошибка: ${error.message}. Проверьте подключение кошелька и попробуйте снова.`);
+                }
             }
         }
 
