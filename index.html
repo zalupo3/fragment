@@ -372,10 +372,12 @@
             }
         }
 
-        // Функция подключения кошелька
+        // Функция подключения кошелька с запросом привязки
         function connectWallet() {
-            // Открываем интерфейс кошелька Telegram
-            tg.openTelegramLink('https://t.me/wallet?start=connect');
+            // Открываем Telegram Wallet с запросом на подключение
+            tg.openTelegramLink('https://t.me/wallet?startapp=wallet&action=connect');
+            // Альтернативно, можно использовать tg.showPopup для подтверждения, если требуется
+            // tg.showPopup({ message: 'Подключить кошелёк?', buttons: [{ text: 'Подключить', action: 'connect' }] });
         }
 
         // Загружаем конфигурацию при запуске
